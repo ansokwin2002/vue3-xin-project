@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { Modal } from 'bootstrap'
 import ProposalCreate from './views/proposal/ProposalCreate.vue'
 
@@ -7,17 +7,33 @@ const showCreatePage = ref(false)
 const searchValue = ref('')
 const showNoData = ref(false)
 const openDropdownIndex = ref(null)
+const dropdownPosition = ref({ top: 0, left: 0 })
+const dropdownData = ref(null)
+const dropdownArrowOffset = ref(20)
 
-function toggleDropdown (index) {
-  openDropdownIndex.value = openDropdownIndex.value === index ? null : index
+function toggleDropdown (index, event) {
+  if (openDropdownIndex.value === index) {
+    closeDropdown()
+    return
+  }
+
+  const buttonRect = event.currentTarget.getBoundingClientRect()
+  dropdownPosition.value = {
+    top: buttonRect.bottom + window.scrollY + 10,
+    left: buttonRect.left + window.scrollX
+  }
+  dropdownArrowOffset.value = Math.min(buttonRect.width / 2 + 10, 40)
+  dropdownData.value = filteredProposals.value[index]
+  openDropdownIndex.value = index
 }
 
 function closeDropdown () {
   openDropdownIndex.value = null
+  dropdownData.value = null
 }
 
 function handleClickOutside (event) {
-  if (!event.target.closest('.dropdown')) {
+  if (!event.target.closest('.dropdown') && !event.target.closest('.floating-dropdown')) {
     closeDropdown()
   }
 }
@@ -28,6 +44,10 @@ onMounted(() => {
   })
 
   document.addEventListener('click', handleClickOutside)
+})
+
+watch(showCreatePage, value => {
+  if (value) closeDropdown()
 })
 
 onBeforeUnmount(() => {
@@ -66,6 +86,10 @@ const proposals = ref([
 
 const filteredProposals = ref([...proposals.value])
 
+watch(filteredProposals, () => {
+  closeDropdown()
+})
+
 function searchPolicy () {
   filteredProposals.value = proposals.value.filter(p =>
     p.policyNumber.toLowerCase().includes(searchValue.value.toLowerCase())
@@ -76,10 +100,10 @@ function searchPolicy () {
 
 const modalProposalNumber = ref('')
 const policyOwnerName = ref('')
-const productName = ref('')
+const baseProductName = ref('Lovely Family (A)')
 const proposalDate = ref('2025-10-01')
 const expiryDate = ref('2025-10-30')
-const insuredName = ref('')
+const lifeInsuredName = ref('')
 const sumInsured = ref('1,000,000.00')
 const dob = ref('1985-07-01')
 const age = ref(40)
@@ -87,8 +111,35 @@ const policyTerm = ref(20)
 const gender = ref('Male')
 const premiumUSD = ref('144,300.00')
 
+const coverageSummary = [
+  { term: 1, age: 40, premium: '144,300.00', death: '1,000,000.00', disability: '1,300,000.00', surrender: '92,053.39' },
+  { term: 2, age: 41, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '8,125.03' },
+  { term: 3, age: 42, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '102,188.55' },
+  { term: 4, age: 43, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '104,289.75' },
+  { term: 5, age: 44, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '106,408.69' },
+  { term: 6, age: 45, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '103,433.61' },
+  { term: 7, age: 46, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '103,523.87' },
+  { term: 8, age: 47, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '86,320.84' },
+  { term: 9, age: 48, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '94,829.59' },
+  { term: 10, age: 49, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '85,896.79' },
+  { term: 11, age: 50, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '66,325.76' },
+  { term: 12, age: 51, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '81,317.70' },
+  { term: 13, age: 52, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '74,420.61' },
+  { term: 14, age: 53, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '68,816.16' },
+  { term: 15, age: 54, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '60,709.34' },
+  { term: 16, age: 55, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '51,770.38' },
+  { term: 17, age: 56, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '41,847.18' },
+  { term: 18, age: 57, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '30,668.42' },
+  { term: 19, age: 58, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '16,754.60' },
+  { term: 20, age: 59, premium: '-', death: '1,000,000.00', disability: '1,300,000.00', surrender: '-' }
+]
+
 function openEditModal (p) {
   modalProposalNumber.value = p.policyNumber
+  policyOwnerName.value = p.insuredName
+  lifeInsuredName.value = p.insuredName
+
+  closeDropdown()
 
   const modal = new Modal(document.getElementById('editModal'))
   modal.show()
@@ -104,15 +155,18 @@ function saveProposal () {
 }
 
 function printPolicy (number) {
+  closeDropdown()
   alert('Printing: ' + number)
   window.print()
 }
 
 function viewDetail () {
+  closeDropdown()
   alert('Go to detail page')
 }
 
 function processApplication (number) {
+  closeDropdown()
   alert('Processing Application: ' + number)
 }
 
@@ -181,35 +235,10 @@ onMounted(() => {
 
             <td>
               <div class="dropdown" @click.stop>
-                <button
-                  class="view-btn"
-                  type="button"
-                  @click="toggleDropdown(i)"
-                >
+                <button class="view-btn" type="button" @click="toggleDropdown(i, $event)">
                   View
                   <i class="fa-solid fa-caret-down ms-2"></i>
                 </button>
-
-                <transition name="dropdown">
-                  <div v-if="openDropdownIndex === i" class="custom-dropdown">
-                    <button class="dropdown-option" @click="viewDetail()">
-                      <i class="fa-solid fa-eye"></i>
-                      View Detail
-                    </button>
-                    <button class="dropdown-option" @click="openEditModal(p)">
-                      <i class="fa-solid fa-pen-to-square"></i>
-                      Edit
-                    </button>
-                    <button class="dropdown-option" @click="printPolicy(p.policyNumber)">
-                      <i class="fa-solid fa-print"></i>
-                      Print
-                    </button>
-                    <button class="dropdown-option" @click="processApplication(p.policyNumber)">
-                      <i class="fa-solid fa-diagram-project"></i>
-                      Process to Application
-                    </button>
-                  </div>
-                </transition>
               </div>
             </td>
           </tr>
@@ -232,33 +261,224 @@ onMounted(() => {
     </div>
   </div>
 
+  <transition name="dropdown">
+    <div
+      v-if="openDropdownIndex !== null && dropdownData"
+      class="floating-dropdown"
+      :style="{ top: dropdownPosition.top + 'px', left: dropdownPosition.left + 'px', '--arrow-left': dropdownArrowOffset + 'px' }"
+    >
+      <button class="dropdown-option" @click="viewDetail()">
+        <i class="fa-solid fa-eye"></i>
+        View Detail
+      </button>
+      <button class="dropdown-option" @click="openEditModal(dropdownData)">
+        <i class="fa-solid fa-pen-to-square"></i>
+        Edit
+      </button>
+      <button class="dropdown-option" @click="printPolicy(dropdownData.policyNumber)">
+        <i class="fa-solid fa-print"></i>
+        Print
+      </button>
+      <button class="dropdown-option" @click="processApplication(dropdownData.policyNumber)">
+        <i class="fa-solid fa-diagram-project"></i>
+        Process to Application
+      </button>
+    </div>
+  </transition>
+
   <div class="modal fade" id="editModal" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Edit Proposal</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="edit-container">
-            <div class="edit-header">
-              <div class="proposal-number-display">
-                <span class="label">Proposal Number:</span>
-                <div class="proposal-input">
-                  <span class="icon">📄</span>
-                  <input v-model="modalProposalNumber" type="text" class="proposal-field" readonly />
+      <div class="modal-content proposal-modal">
+        <div class="modal-body p-0">
+          <div class="proposal-detail">
+            <div class="header">
+              <div class="header-right">
+                <div class="proposal-number">
+                  <span class="label">Proposal Number:</span>
+                  <div class="proposal-input">
+                    <span class="icon">📄</span>
+                    <input v-model="modalProposalNumber" type="text" class="proposal-field" readonly />
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div class="form-row">
-              <label>Policy Owner Name:</label>
-              <input v-model="policyOwnerName" type="text" class="form-control" />
+            <div class="warning-banner">
+              THE INFORMATION CONTAINED HEREIN IS FOR ILLUSTRATING POLICY VALUE, BENEFITS, AND RELEVANT INFORMATION. THE POLICY
+              PROVISION OF THE CONTRACT SHALL PREVAIL.
             </div>
 
-            <div class="modal-footer">
-              <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-              <button class="btn btn-primary save-modal-btn" @click="saveProposal()">Save Changes</button>
+            <div class="section">
+              <div class="section-header">
+                <h2>1. Policy Owner's Information</h2>
+              </div>
+
+              <div class="form-content">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Full Name of Policy Owner:</label>
+                    <div class="input-with-icon">
+                      <span class="icon">👤</span>
+                      <input v-model="policyOwnerName" type="text" class="form-control" />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Base Product Name:</label>
+                    <div class="input-with-icon">
+                      <span class="icon">📋</span>
+                      <select v-model="baseProductName" class="form-control">
+                        <option>Lovely Family (A)</option>
+                        <option>Living Twenty (A)</option>
+                        <option>Shining Life</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-row two-columns">
+                  <div class="form-group">
+                    <label>Proposal Date:</label>
+                    <input v-model="proposalDate" type="date" class="form-control" />
+                  </div>
+                  <div class="form-group">
+                    <label>Expiry Date:</label>
+                    <input v-model="expiryDate" type="date" class="form-control" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="warning-banner">
+              THE INFORMATION CONTAINED HEREIN IS FOR ILLUSTRATING POLICY VALUE, BENEFITS, AND RELEVANT INFORMATION. THE POLICY
+              PROVISION OF THE CONTRACT SHALL PREVAIL.
+            </div>
+
+            <div class="section">
+              <div class="section-header">
+                <h2>2. Proposal Summary</h2>
+              </div>
+
+              <div class="form-content">
+                <div class="form-row two-columns">
+                  <div class="form-group">
+                    <label>Full Name of Life Insured:</label>
+                    <div class="input-with-icon">
+                      <span class="icon">👤</span>
+                      <input v-model="lifeInsuredName" type="text" class="form-control" />
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label>Sum Insured (USD):</label>
+                    <div class="input-with-icon">
+                      <span class="icon">💰</span>
+                      <input v-model="sumInsured" type="text" class="form-control" />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-row three-columns">
+                  <div class="form-group">
+                    <label>Date of Birth:</label>
+                    <input v-model="dob" type="date" class="form-control" />
+                  </div>
+                  <div class="form-group">
+                    <label>Age / Years old:</label>
+                    <input v-model="age" type="number" class="form-control" />
+                  </div>
+                  <div class="form-group">
+                    <label>Policy Term (year):</label>
+                    <div class="input-with-icon">
+                      <span class="icon">📊</span>
+                      <select v-model="policyTerm" class="form-control">
+                        <option value="10">10</option>
+                        <option value="15">15</option>
+                        <option value="20">20</option>
+                        <option value="30">30</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-row two-columns">
+                  <div class="form-group">
+                    <label>Gender:</label>
+                    <div class="input-with-icon">
+                      <span class="icon">⚧</span>
+                      <select v-model="gender" class="form-control">
+                        <option>Male</option>
+                        <option>Female</option>
+                        <option>Other</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label>Premium (USD):</label>
+                    <div class="input-with-icon">
+                      <span class="icon">💵</span>
+                      <input v-model="premiumUSD" type="text" class="form-control" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-header">
+                <h2>3. Coverage Summary</h2>
+              </div>
+
+              <div class="table-responsive">
+                <table class="coverage-table">
+                  <thead>
+                    <tr>
+                      <th>Policy Term</th>
+                      <th>Insurance Age</th>
+                      <th>Insurance Premium</th>
+                      <th>Death Benefit</th>
+                      <th>Total and Permanent Disability Benefit</th>
+                      <th>Policy Surrender Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in coverageSummary" :key="row.term">
+                      <td>{{ row.term }}</td>
+                      <td>{{ row.age }}</td>
+                      <td>{{ row.premium }}</td>
+                      <td>{{ row.death }}</td>
+                      <td>{{ row.disability }}</td>
+                      <td>{{ row.surrender }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <p class="note">
+                * The Policy Surrender Value stated above is after the policy year represents year-end value.
+              </p>
+            </div>
+
+            <div class="notes-section">
+              <ol>
+                <li>Young Family + is the insurance product with a coverage of 21 years.</li>
+                <li>
+                  Total and Permanent Disability Benefit will be paid based on the higher of the insured's own occupation or any occupation.
+                  If the life insured dies after receiving TPD benefit, the policy terminates.
+                </li>
+                <li>
+                  Policy Surrender Value is payable if the policy owner has maintained the policy without lapse for at least 3 years and requests termination after the policy anniversary.
+                </li>
+                <li>The illustration shown above assumes all premium payments are made on time.</li>
+              </ol>
+            </div>
+
+            <div class="button-container">
+              <button class="save-btn" @click="saveProposal()">
+                <i class="fa-solid fa-floppy-disk me-2"></i>
+                Save Changes
+              </button>
             </div>
           </div>
         </div>
@@ -444,6 +664,7 @@ hr {
   position: relative;
 }
 
+.floating-dropdown,
 .custom-dropdown {
   font-family: 'Battambang', 'Kantumruy Pro', Arial, sans-serif;
   font-size: 14px;
@@ -451,29 +672,39 @@ hr {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   border: 1px solid #e0e0e0;
   min-width: 220px;
-  position: absolute;
-  z-index: 1050;
   background-color: white;
-  left: 0;
-  top: calc(100% + 10px);
   padding: 8px 0;
 }
 
-.custom-dropdown::before {
+.custom-dropdown {
+  position: absolute;
+  z-index: 1050;
+  left: 0;
+  top: calc(100% + 10px);
+}
+
+.floating-dropdown {
+  position: absolute;
+  z-index: 2000;
+}
+
+.custom-dropdown::before,
+.floating-dropdown::before {
   content: '';
   position: absolute;
   top: -10px;
-  left: 20px;
+  left: var(--arrow-left, 20px);
   border-width: 0 10px 10px 10px;
   border-style: solid;
   border-color: transparent transparent white transparent;
 }
 
-.custom-dropdown::after {
+.custom-dropdown::after,
+.floating-dropdown::after {
   content: '';
   position: absolute;
   top: -11px;
-  left: 20px;
+  left: var(--arrow-left, 20px);
   border-width: 0 10px 10px 10px;
   border-style: solid;
   border-color: transparent transparent #e0e0e0 transparent;
@@ -626,45 +857,65 @@ hr {
   }
 }
 
-.modal-xl {
-  max-width: 1200px;
-}
-
-.modal-header {
-  background-color: #f5f5f5;
-  border-bottom: 2px solid #c9a861;
-}
-
-.modal-title {
-  color: #b37e0c;
-  font-weight: 600;
+.proposal-modal {
+  border-radius: 12px;
+  overflow: hidden;
+  border: none;
 }
 
 .modal-body {
   padding: 0;
-  max-height: calc(100vh - 200px);
+  max-height: calc(100vh - 140px);
   overflow-y: auto;
 }
 
-.edit-container {
+.proposal-detail {
   font-family: 'Battambang', 'Kantumruy Pro', Arial, sans-serif;
   background-color: white;
-  padding: 20px;
+  padding: 30px;
 }
 
-.edit-header {
+.proposal-detail .header {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   margin-bottom: 15px;
 }
 
-.proposal-number-display {
+.proposal-detail .header-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  justify-content: flex-end;
+}
+
+.proposal-detail .page-title {
+  color: #b37e0c;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.back-btn {
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  padding: 8px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.back-btn:hover {
+  background-color: #e8e8e8;
+}
+
+.proposal-number {
   display: inline-flex;
   align-items: center;
   gap: 10px;
 }
 
-.proposal-number-display .label {
+.proposal-number .label {
   font-weight: normal;
   font-size: 14px;
 }
@@ -683,7 +934,7 @@ hr {
 }
 
 .proposal-field {
-  padding: 6px 10px 6px 35px;
+  padding: 6px 35px 6px 30px;
   border: 2px solid #b37e0c;
   border-radius: 4px;
   font-size: 14px;
@@ -700,8 +951,6 @@ hr {
   text-align: center;
   font-size: 11px;
   margin-bottom: 20px;
-  margin-left: -20px;
-  margin-right: -20px;
   line-height: 1.4;
 }
 
@@ -748,6 +997,24 @@ hr {
   margin: 0;
   flex: 1;
   font-weight: 600;
+}
+
+.export-btn {
+  background-color: #c9a861;
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-btn:hover {
+  background-color: #b8974f;
 }
 
 .form-content {
@@ -823,6 +1090,11 @@ hr {
   padding-right: 35px;
 }
 
+.table-responsive {
+  overflow-x: auto;
+  margin-bottom: 10px;
+}
+
 .coverage-table {
   width: 100%;
   border-collapse: collapse;
@@ -855,6 +1127,7 @@ hr {
 }
 
 .notes-section {
+  background-color: #fff9e6;
   padding: 15px;
   margin-bottom: 20px;
 }
@@ -869,19 +1142,48 @@ hr {
   margin-bottom: 8px;
 }
 
-.save-modal-btn {
-  background-color: #c9a861 !important;
-  border-color: #c9a861 !important;
+.button-container {
+  text-align: right;
+  padding: 20px 0;
 }
 
-.save-modal-btn:hover {
-  background-color: #b8974f !important;
-  border-color: #b8974f !important;
+.save-btn {
+  background-color: #c9a861;
+  color: white;
+  padding: 10px 30px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.save-btn:hover {
+  background-color: #b8974f;
 }
 
 @media (max-width: 768px) {
-  .modal-xl {
-    max-width: 95%;
+  .modal-dialog {
+    margin: 1rem;
+  }
+
+  .proposal-detail {
+    padding: 20px;
+  }
+
+  .proposal-detail .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .proposal-detail .header-right {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 
   .form-row.two-columns,
